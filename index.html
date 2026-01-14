@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/stjs@0.0.5/st.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsonlint/1.6.0/jsonlint.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/lint/lint.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/lint/javascript-lint.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/lint/json-lint.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/edit/closebrackets.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/addon/edit/matchbrackets.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/mode/javascript/javascript.js"></script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-beta/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/theme/railscasts.css"
+      rel="stylesheet"
+    />
+    <style>
+      .container-fluid,
+      .row,
+      .col {
+        height: 100%;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid">
+      <div class="row">
+        <div class="col">
+          <textarea id="source"></textarea>
+        </div>
+        <div class="col">
+          <textarea id="code"></textarea>
+        </div>
+        <div class="col">
+          <textarea id="result"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      var content = {
+        source:
+          'var data = {\n  items: [1,2,3,100,10,19]\n};\nvar template = {\n  labels: {\n    "{{#each items}}": {\n      type: "label",\n      text: "{{this}}"\n    }\n  }\n}',
+        code: 'ST.select(data)\n\t.transformWith(template)\n\t.root()',
+      };
+
+      var editors = {};
+
+      function createCodeMirror(id, value, onChangeCallback) {
+        var textarea = document.getElementById(id);
+        var editor = CodeMirror.fromTextArea(textarea, {
+          lineNumbers: true,
+          lineWrapping: true,
+          lint: true,
+          styleActiveLine: true,
+          autoCloseBrackets: true,
+          matchBrackets: true,
+          viewportMargin: true,
+          theme: 'railscasts',
+          gutters: ['CodeMirror-lint-markers'],
+        });
+
+        if (value) {
+          editor.getDoc().setValue(value);
+        }
+
+        var wrapper = editor.getWrapperElement();
+        wrapper.classList.add('col');
+
+        if (onChangeCallback) {
+          editor.on('change', onChangeCallback);
+        }
+
+        editors[id] = editor;
+        return editor;
+      }
+
+      function updateResult() {
+        var source = editors.source ? editors.source.getDoc().getValue() : null;
+        var evaluation = editors.code ? editors.code.getDoc().getValue() : null;
+
+        if (source && evaluation) {
+          try {
+            var result = eval(source + '\n' + evaluation);
+            editors.result.getDoc().setValue(JSON.stringify(result, null, 2));
+          } catch (e) {
+            editors.result.getDoc().setValue('Error: ' + e.message);
+          }
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        createCodeMirror('source', content.source, updateResult);
+        createCodeMirror('code', content.code, updateResult);
+        createCodeMirror('result', '');
+
+        // Initial evaluation
+        updateResult();
+      });
+    </script>
+  </body>
+</html>
