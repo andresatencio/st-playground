@@ -34,6 +34,37 @@
         height: 100%;
         overflow: hidden;
       }
+      /* Force white selection on all CodeMirror elements */
+      .CodeMirror .CodeMirror-selected,
+      .CodeMirror.CodeMirror-focused .CodeMirror-selected,
+      .CodeMirror .CodeMirror-selectedtext,
+      .CodeMirror-selectionsLayer,
+      .CodeMirror-selectionDiv,
+      div.CodeMirror-selected,
+      .cm-s-railscasts .CodeMirror-selected,
+      .cm-s-railscasts.CodeMirror-focused .CodeMirror-selected {
+        background: rgba(255, 255, 255, 0.35) !important;
+        background-color: rgba(255, 255, 255, 0.35) !important;
+      }
+      /* Native browser selection */
+      .CodeMirror *::selection {
+        background: rgba(255, 255, 255, 0.35) !important;
+        background-color: rgba(255, 255, 255, 0.35) !important;
+      }
+      .CodeMirror *::-moz-selection {
+        background: rgba(255, 255, 255, 0.35) !important;
+        background-color: rgba(255, 255, 255, 0.35) !important;
+      }
+      /* Override theme selection styles */
+      .cm-s-railscasts div.CodeMirror-selected {
+        background: rgba(255, 255, 255, 0.35) !important;
+      }
+      /* Custom cursor color - white */
+      .CodeMirror-cursor,
+      .CodeMirror div.CodeMirror-cursor,
+      .cm-s-railscasts .CodeMirror-cursor {
+        border-left: 2px solid #ffffff !important;
+      }
     </style>
   </head>
   <body>
@@ -52,13 +83,65 @@
     </div>
 
     <script>
-      var content = {
+      var defaultContent = {
         source:
           'var data = {\n  items: [1,2,3,100,10,19]\n};\nvar template = {\n  labels: {\n    "{{#each items}}": {\n      type: "label",\n      text: "{{this}}"\n    }\n  }\n}',
         code: 'ST.select(data)\n\t.transformWith(template)\n\t.root()',
       };
 
       var editors = {};
+
+      // ========== URL Hash Functions ==========
+      
+      function encodeToHash(source, code) {
+        var payload = JSON.stringify({ source: source, code: code });
+        var encoded = btoa(unescape(encodeURIComponent(payload)));
+        return encoded;
+      }
+
+      function decodeFromHash(hash) {
+        try {
+          var decoded = decodeURIComponent(escape(atob(hash)));
+          return JSON.parse(decoded);
+        } catch (e) {
+          console.warn('Failed to decode hash:', e);
+          return null;
+        }
+      }
+
+      function getContentFromUrl() {
+        var hash = window.location.hash.slice(1); // Remove the '#'
+        if (hash) {
+          var decoded = decodeFromHash(hash);
+          if (decoded && decoded.source !== undefined && decoded.code !== undefined) {
+            return decoded;
+          }
+        }
+        return defaultContent;
+      }
+
+      function updateUrlHash() {
+        var source = editors.source ? editors.source.getDoc().getValue() : '';
+        var code = editors.code ? editors.code.getDoc().getValue() : '';
+        var hash = encodeToHash(source, code);
+        history.replaceState(null, null, '#' + hash);
+      }
+
+      // Debounce function to avoid updating URL on every keystroke
+      function debounce(func, wait) {
+        var timeout;
+        return function() {
+          var context = this, args = arguments;
+          clearTimeout(timeout);
+          timeout = setTimeout(function() {
+            func.apply(context, args);
+          }, wait);
+        };
+      }
+
+      var debouncedUpdateUrlHash = debounce(updateUrlHash, 500);
+
+      // ========== CodeMirror Setup ==========
 
       function createCodeMirror(id, value, onChangeCallback) {
         var textarea = document.getElementById(id);
@@ -101,15 +184,30 @@
             editors.result.getDoc().setValue('Error: ' + e.message);
           }
         }
+
+        // Update URL hash when content changes
+        debouncedUpdateUrlHash();
       }
 
       document.addEventListener('DOMContentLoaded', function () {
+        // Load content from URL hash or use defaults
+        var content = getContentFromUrl();
+        
         createCodeMirror('source', content.source, updateResult);
         createCodeMirror('code', content.code, updateResult);
         createCodeMirror('result', '');
 
-        // Initial evaluation
+        // Initial evaluation and URL update
         updateResult();
+      });
+
+      // Handle browser back/forward navigation
+      window.addEventListener('hashchange', function() {
+        var content = getContentFromUrl();
+        if (editors.source && editors.code) {
+          editors.source.getDoc().setValue(content.source);
+          editors.code.getDoc().setValue(content.code);
+        }
       });
     </script>
   </body>
